@@ -1,21 +1,3 @@
-"""
-Diagram Assistant - Interactive Node Diagram Editor
-
-This script provides a Tkinter GUI for creating, editing, and visualizing hierarchical diagrams.
-Features:
-- Add/delete nodes
-- Change node color, shape, orientation, and size
-- Undo/redo actions
-- Edit node label and style
-- Export diagram visually
-
-Example usage:
-1. Run the script.
-2. Click "Add Child" to add nodes.
-3. Select a node to change its color, shape, or orientation.
-4. Double-click a node to edit its label and size.
-5. Use Undo/Redo to revert changes.
-
 import tkinter as tk
 from tkinter import ttk, colorchooser
 from PIL import Image
@@ -734,7 +716,56 @@ class DiagramApp:
                 ids = self._draw_parallel_lines(start_x, start_y, end_x, end_y, arrow1=True, arrow2=True, conn=conn)
             elif line_type == "double_arrow_oneway":
                 ids = self._draw_parallel_lines(start_x, start_y, end_x, end_y, arrow1=True, arrow2=False, conn=conn)
+            elif line_type == "connector":
+                self._draw_connector_line(start_x, start_y, end_x, end_y, conn)
             # Add more types as needed
+
+    def _draw_connector_line(self, x0, y0, x1, y1, conn=None):
+        """Draws a connector line: socket (◉), thick line, lollipop (◯), with circles outside node borders."""
+        r_outer = 12  # connector circle radius
+        # Calculate direction vector
+        dx = x1 - x0
+        dy = y1 - y0
+        dist = (dx**2 + dy**2) ** 0.5
+        if dist == 0:
+            dist = 1
+        ux, uy = dx / dist, dy / dist
+
+        # Estimate node border offset (assuming node is ellipse/rectangle, adjust as needed)
+        node_offset = 20  # You may want to compute this based on node size/shape
+
+        # Move endpoints outward by node border + connector circle radius
+        start_x = x0 + ux * (node_offset + r_outer)
+        start_y = y0 + uy * (node_offset + r_outer)
+        end_x = x1 - ux * (node_offset + r_outer)
+        end_y = y1 - uy * (node_offset + r_outer)
+
+        # Draw thick line between new endpoints
+        line_id = self.canvas.create_line(start_x, start_y, end_x, end_y, width=6, fill="#444")
+
+        # Draw socket (◉): hollow circle with black filled center at start
+        socket_outer = self.canvas.create_oval(
+            start_x - r_outer, start_y - r_outer, start_x + r_outer, start_y + r_outer,
+            fill="#fff", outline="#222", width=2
+        )
+        socket_inner = self.canvas.create_oval(
+            start_x - 7, start_y - 7, start_x + 7, start_y + 7,
+            fill="#222", outline="", width=0
+        )
+
+        # Draw lollipop (◯): hollow circle at end
+        lollipop = self.canvas.create_oval(
+            end_x - r_outer, end_y - r_outer, end_x + r_outer, end_y + r_outer,
+            fill="#fff", outline="#222", width=2
+        )
+
+        # Bind context menu to all parts
+        if conn:
+            self._bind_line_context_menu(line_id, conn)
+            self._bind_line_context_menu(socket_outer, conn)
+            self._bind_line_context_menu(socket_inner, conn)
+            self._bind_line_context_menu(lollipop, conn)
+        return (line_id, socket_outer, socket_inner, lollipop)
 
     def _bind_line_context_menu(self, line_id, conn):
         self.line_id_to_connection[line_id] = conn
@@ -941,6 +972,11 @@ class DiagramApp:
                     connect_menu.add_command(
                         label="Double Line with Arrows ↔",
                         command=lambda: self.add_connection(from_id, node_id, "double_arrow")
+                    )
+                    # --- Add Connector option ---
+                    connect_menu.add_command(
+                        label="Connector ◉─────◯",
+                        command=lambda: self.add_connection(from_id, node_id, "connector")
                     )
                     menu.add_cascade(label="Draw connection to this node...", menu=connect_menu)
                 # --- END PATCH ---
