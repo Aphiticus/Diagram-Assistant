@@ -1,4 +1,4 @@
-<img src="Logical_View.png" />
+<img src="Diagram_Assistant.png" />
 """
 Diagram Assistant - Interactive Node Diagram Editor
 
